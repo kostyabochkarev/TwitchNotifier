@@ -12,6 +12,11 @@ import java.util.concurrent.TimeUnit
 object TwitchApi {
 
     private const val CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
+
+    /** Публичный OAuth-токен, который использует сам сайт twitch.tv.
+     *  Он не привязан к аккаунту, не истекает, работает для публичных запросов. */
+    private const val OAUTH_TOKEN = "6g3v5av1a4i18ja7o1zb6r3j6wv1vx"
+
     private const val GQL_URL = "https://gql.twitch.tv/gql"
 
     val http: OkHttpClient = OkHttpClient.Builder()
@@ -20,6 +25,16 @@ object TwitchApi {
         .build()
 
     private val JSON = "application/json".toMediaType()
+
+    private fun buildRequest(jsonBody: String): Request {
+        return Request.Builder()
+            .url(GQL_URL)
+            .header("Client-ID", CLIENT_ID)
+            .header("Authorization", "OAuth $OAUTH_TOKEN")
+            .header("Content-Type", "application/json")
+            .post(jsonBody.toRequestBody(JSON))
+            .build()
+    }
 
     suspend fun isStreamLive(login: String): Boolean = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
@@ -30,17 +45,10 @@ object TwitchApi {
                   }
                 }
             """.trimIndent())
-        }.toString().toRequestBody(JSON)
-
-        val req = Request.Builder()
-            .url(GQL_URL)
-            .header("Client-ID", CLIENT_ID)
-            .header("Content-Type", "application/json")
-            .post(body)
-            .build()
+        }.toString()
 
         try {
-            http.newCall(req).execute().use { resp ->
+            http.newCall(buildRequest(body)).execute().use { resp ->
                 val text = resp.body?.string() ?: return@withContext false
                 if (!resp.isSuccessful) return@withContext false
                 val json = JSONObject(text)
@@ -53,7 +61,6 @@ object TwitchApi {
         }
     }
 
-    /** Возвращает имя и аватар канала, либо null если канал не найден */
     suspend fun fetchChannelInfo(login: String): Channel? = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("query", """
@@ -65,17 +72,10 @@ object TwitchApi {
                   }
                 }
             """.trimIndent())
-        }.toString().toRequestBody(JSON)
-
-        val req = Request.Builder()
-            .url(GQL_URL)
-            .header("Client-ID", CLIENT_ID)
-            .header("Content-Type", "application/json")
-            .post(body)
-            .build()
+        }.toString()
 
         try {
-            http.newCall(req).execute().use { resp ->
+            http.newCall(buildRequest(body)).execute().use { resp ->
                 val text = resp.body?.string() ?: return@withContext null
                 if (!resp.isSuccessful) return@withContext null
                 val json = JSONObject(text)
