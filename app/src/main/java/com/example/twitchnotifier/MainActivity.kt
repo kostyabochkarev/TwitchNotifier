@@ -10,7 +10,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.twitchnotifier.databinding.ActivityMainBinding
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -38,6 +40,7 @@ class MainActivity : AppCompatActivity() {
 
         refreshUi()
         TwitchService.reload(this)
+        refreshAvatars()
     }
 
     override fun onResume() {
@@ -51,6 +54,21 @@ class MainActivity : AppCompatActivity() {
         b.tvStatus.text = if (channels.isEmpty()) "Список пуст" else "Отслеживается: ${channels.size}"
     }
 
+    /** Тихо обновляет имена и аватарки всех каналов в фоне */
+    private fun refreshAvatars() {
+        lifecycleScope.launch {
+            val current = Storage.getChannels(this@MainActivity)
+            if (current.isEmpty()) return@launch
+            val updated = mutableListOf<Channel>()
+            for (ch in current) {
+                val info = withContext(Dispatchers.IO) { TwitchApi.fetchChannelInfo(ch.login) }
+                updated.add(info ?: ch)
+            }
+            Storage.saveChannels(this@MainActivity, updated)
+            refreshUi()
+        }
+    }
+
     private fun askAddChannel() {
         val et = EditText(this).apply { hint = "логин канала, например shroud" }
         AlertDialog.Builder(this)
@@ -61,21 +79,21 @@ class MainActivity : AppCompatActivity() {
                 if (login.isEmpty()) return@setPositiveButton
                 lifecycleScope.launch {
                     toast("Проверяю канал…")
-                    val display = TwitchApi.channelExists(login)
-                    if (display == null) {
+                    val info = TwitchApi.fetchChannelInfo(login)
+                    if (info == null) {
                         toast("Канал «$login» не найден")
                         return@launch
                     }
                     val list = Storage.getChannels(this@MainActivity)
-                    if (list.any { it.login.equals(login, ignoreCase = true) }) {
+                    if (list.any { it.login.equals(info.login, ignoreCase = true) }) {
                         toast("Уже в списке")
                         return@launch
                     }
-                    list.add(Channel(login, display))
+                    list.add(info)
                     Storage.saveChannels(this@MainActivity, list)
                     refreshUi()
                     TwitchService.reload(this@MainActivity)
-                    toast("$display добавлен")
+                    toast("${info.displayName} добавлен")
                 }
             }
             .setNegativeButton("Отмена", null)
