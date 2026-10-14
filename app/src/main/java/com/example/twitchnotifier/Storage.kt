@@ -6,27 +6,27 @@ import org.json.JSONObject
 
 data class Channel(val id: String, val login: String, val displayName: String)
 
+private const val P = "twitch_notifier"
+private const val K_CLIENT = "client_id"
+private const val K_TOKEN = "access_token"
+private const val K_CHANNELS = "channels"
+private const val K_VERIFIER = "code_verifier"
+
+private fun sp(c: Context) = c.getSharedPreferences(P, Context.MODE_PRIVATE)
+
+var Context.clientId: String?
+    get() = sp(this).getString(K_CLIENT, null)
+    set(v) = sp(this).edit().putString(K_CLIENT, v).apply()
+
+var Context.accessToken: String?
+    get() = sp(this).getString(K_TOKEN, null)
+    set(v) = sp(this).edit().putString(K_TOKEN, v).apply()
+
+var Context.codeVerifier: String?
+    get() = sp(this).getString(K_VERIFIER, null)
+    set(v) = sp(this).edit().putString(K_VERIFIER, v).apply()
+
 object Storage {
-    private const val P = "twitch_notifier"
-    private const val K_CLIENT = "client_id"
-    private const val K_TOKEN = "access_token"
-    private const val K_CHANNELS = "channels"
-    private const val K_VERIFIER = "code_verifier"
-
-    private fun sp(c: Context) = c.getSharedPreferences(P, Context.MODE_PRIVATE)
-
-    var Context.clientId: String?
-        get() = sp(this).getString(K_CLIENT, null)
-        set(v) = sp(this).edit().putString(K_CLIENT, v).apply()
-
-    var Context.accessToken: String?
-        get() = sp(this).getString(K_TOKEN, null)
-        set(v) = sp(this).edit().putString(K_TOKEN, v).apply()
-
-    var Context.codeVerifier: String?
-        get() = sp(this).getString(K_VERIFIER, null)
-        set(v) = sp(this).edit().putString(K_VERIFIER, v).apply()
-
     fun getChannels(c: Context): MutableList<Channel> {
         val raw = sp(c).getString(K_CHANNELS, "[]") ?: "[]"
         val arr = JSONArray(raw)
