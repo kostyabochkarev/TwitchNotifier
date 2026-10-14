@@ -21,7 +21,6 @@ object TwitchApi {
 
     private val JSON = "application/json".toMediaType()
 
-    /** Возвращает true, если канал в эфире */
     suspend fun isStreamLive(login: String): Boolean = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("query", """
@@ -54,14 +53,15 @@ object TwitchApi {
         }
     }
 
-    /** Проверяет, существует ли такой канал на Twitch */
-    suspend fun channelExists(login: String): String? = withContext(Dispatchers.IO) {
+    /** Возвращает имя и аватар канала, либо null если канал не найден */
+    suspend fun fetchChannelInfo(login: String): Channel? = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("query", """
                 query {
                   user(login: "$login") {
                     login
                     displayName
+                    profileImageURL(width: 300)
                   }
                 }
             """.trimIndent())
@@ -81,7 +81,11 @@ object TwitchApi {
                 val json = JSONObject(text)
                 val data = json.optJSONObject("data") ?: return@withContext null
                 val user = data.optJSONObject("user") ?: return@withContext null
-                user.optString("displayName", null)
+                Channel(
+                    login = user.getString("login"),
+                    displayName = user.getString("displayName"),
+                    avatarUrl = user.optString("profileImageURL", "")
+                )
             }
         } catch (_: Exception) {
             null
